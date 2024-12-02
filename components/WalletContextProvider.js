@@ -3,13 +3,13 @@ import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
-import { clusterApiUrl, Connection } from '@solana/web3.js';
+import { Connection } from '@solana/web3.js';
 
 require('@solana/wallet-adapter-react-ui/styles.css');
 
 export default function WalletContextProvider({ children }) {
-  // Using a more reliable RPC endpoint
-  const endpoint = "https://api.mainnet-beta.solana.com";
+  // Using GenesysGo's public RPC endpoint
+  const endpoint = "https://ssc-dao.genesysgo.net";
   
   const wallets = useMemo(
     () => [
@@ -18,15 +18,8 @@ export default function WalletContextProvider({ children }) {
     []
   );
 
-  // Configure the connection
-  const config = {
-    commitment: 'confirmed',
-    wsEndpoint: "wss://api.mainnet-beta.solana.com",
-    confirmTransactionInitialTimeout: 60000
-  };
-
   return (
-    <ConnectionProvider endpoint={endpoint} config={config}>
+    <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           {children}
