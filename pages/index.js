@@ -7,27 +7,64 @@ export default function Home() {
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
   const [tokens, setTokens] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const getTokenAccounts = async () => {
-    if (!publicKey) return;
+    if (!publicKey) {
+      setError('Wallet not connected');
+      return;
+    }
 
+    setLoading(true);
+    setError('');
+    
     try {
-      const response = await connection.getParsedTokenAccountsByOwner(publicKey, {
-        programId: TOKEN_PROGRAM_ID,
-      });
+      console.log('Fetching token accounts for:', publicKey.toString());
+      
+      const response = await connection.getParsedTokenAccountsByOwner(
+        publicKey,
+        {
+          programId: TOKEN_PROGRAM_ID,
+        },
+        'confirmed'
+      );
 
-      const tokenDetails = response.value.map((accountInfo) => {
-        const parsedInfo = accountInfo.account.data.parsed.info;
-        return {
-          mint: parsedInfo.mint,
-          amount: parsedInfo.tokenAmount.uiAmount,
-          decimals: parsedInfo.tokenAmount.decimals,
-        };
-      });
+      console.log('Raw response:', response);
 
+      if (!response.value || response.value.length === 0) {
+        console.log('No tokens found');
+        setTokens([]);
+        setError('No tokens found in this wallet');
+        return;
+      }
+
+      const tokenDetails = response.value
+        .filter(accountInfo => {
+          const tokenAmount = accountInfo.account.data.parsed.info.tokenAmount;
+          // Only include tokens with non-zero balance
+          return tokenAmount.uiAmount > 0;
+        })
+        .map((accountInfo) => {
+          const parsedInfo = accountInfo.account.data.parsed.info;
+          return {
+            mint: parsedInfo.mint,
+            amount: parsedInfo.tokenAmount.uiAmount,
+            decimals: parsedInfo.tokenAmount.decimals,
+          };
+        });
+
+      console.log('Processed token details:', tokenDetails);
       setTokens(tokenDetails);
+      
+      if (tokenDetails.length === 0) {
+        setError('No tokens with balance found');
+      }
     } catch (error) {
-      console.error('Error fetching token accounts:', error);
+      console.error('Error details:', error);
+      setError(`Failed to fetch tokens: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,10 +87,19 @@ export default function Home() {
 
               <button 
                 onClick={getTokenAccounts}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                disabled={loading}
+                className={`${
+                  loading 
+                    ? 'bg-gray-400' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white px-4 py-2 rounded`}
               >
-                Fetch Token Holdings
+                {loading ? 'Fetching...' : 'Fetch Token Holdings'}
               </button>
+
+              {error && (
+                <p className="mt-4 text-red-500">{error}</p>
+              )}
 
               {tokens.length > 0 && (
                 <div className="mt-6">
