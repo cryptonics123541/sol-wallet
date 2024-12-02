@@ -3,22 +3,29 @@ import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
-import { Connection } from '@solana/web3.js';
+import { Connection, clusterApiUrl } from '@solana/web3.js';
 
 require('@solana/wallet-adapter-react-ui/styles.css');
 
 export default function WalletContextProvider({ children }) {
-  // Using RPC Pool endpoint
-  const endpoint = "https://free.rpcpool.com";
+  const network = WalletAdapterNetwork.Devnet; // Using devnet for testing
+  const endpoint = clusterApiUrl(network);
   
-  // Configure connection
-  const config = {
-    commitment: 'confirmed',
-    disableRetryOnRateLimit: false,
-    httpHeaders: {
-      'Content-Type': 'application/json'
-    }
-  };
+  // Create custom connection
+  const connection = new Connection(endpoint, {
+    commitment: 'processed',
+    confirmTransactionInitialTimeout: 60000,
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    },
+  });
 
   const wallets = useMemo(
     () => [
@@ -28,7 +35,7 @@ export default function WalletContextProvider({ children }) {
   );
 
   return (
-    <ConnectionProvider endpoint={endpoint} config={config}>
+    <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           {children}

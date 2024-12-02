@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 
 export default function Home() {
   const { publicKey, connected } = useWallet();
@@ -12,66 +12,65 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const getBalances = async () => {
-    if (!publicKey) {
+  const getBalances = useCallback(async () => {
+    if (!publicKey || !connection) {
       setError('Wallet not connected');
       return;
     }
 
     setLoading(true);
     setError('');
-    
+
     try {
-      // Debug log
-      console.log('Fetching balances for address:', publicKey.toString());
-      console.log('Connection endpoint:', connection.rpcEndpoint);
+      // Get SOL balance using getAccountInfo instead of getBalance
+      const accountInfo = await connection.getAccountInfo(publicKey);
+      const balance = accountInfo ? accountInfo.lamports / LAMPORTS_PER_SOL : 0;
+      setSolBalance(balance);
 
-      // Get SOL balance
-      const balance = await connection.getBalance(publicKey);
-      console.log('Raw SOL balance (lamports):', balance);
-      const solBalanceCalculated = balance / LAMPORTS_PER_SOL;
-      console.log('Converted SOL balance:', solBalanceCalculated);
-      setSolBalance(solBalanceCalculated);
-
-      // Get token accounts with more detailed error handling
-      console.log('Fetching token accounts...');
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-        publicKey,
+      // Get token accounts using getParsedProgramAccounts
+      const tokenAccounts = await connection.getParsedProgramAccounts(
+        new PublicKey(TOKEN_PROGRAM_ID),
         {
-          programId: TOKEN_PROGRAM_ID,
+          filters: [
+            {
+              dataSize: 165, // size of token account
+            },
+            {
+              memcmp: {
+                offset: 32, // location of owner address
+                bytes: publicKey.toBase58(),
+              },
+            },
+          ],
         }
       );
 
-      console.log('Raw token accounts response:', tokenAccounts);
-
-      const tokenDetails = tokenAccounts.value
-        .filter(account => {
-          const tokenAmount = account.account.data.parsed.info.tokenAmount;
-          console.log('Token amount for account:', tokenAmount);
-          return tokenAmount.uiAmount > 0;
-        })
+      const tokenDetails = tokenAccounts
         .map((account) => {
-          const parsedInfo = account.account.data.parsed.info;
-          return {
-            mint: parsedInfo.mint,
-            amount: parsedInfo.tokenAmount.uiAmount,
-            decimals: parsedInfo.tokenAmount.decimals,
-          };
-        });
+          const parsedData = account.account.data.parsed;
+          const info = parsedData?.info;
+          if (!info || !info.tokenAmount) return null;
 
-      console.log('Processed token details:', tokenDetails);
+          return {
+            mint: info.mint,
+            amount: info.tokenAmount.uiAmount,
+            decimals: info.tokenAmount.decimals,
+          };
+        })
+        .filter(token => token && token.amount > 0);
+
       setTokens(tokenDetails);
-      
+
       if (tokenDetails.length === 0 && balance === 0) {
         setError('No SOL or tokens found in this wallet');
       }
-    } catch (error) {
-      console.error('Detailed error:', error);
-      setError(`Failed to fetch balances: ${error.message}`);
+    } catch (err) {
+      console.error('Error fetching balances:', err);
+      setError(`Error fetching balances: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [publicKey, connection]);
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
