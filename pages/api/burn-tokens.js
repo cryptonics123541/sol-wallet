@@ -1,0 +1,64 @@
+import { Connection, PublicKey } from '@solana/web3.js';
+import connectDB from '../../utils/db';
+import User from '../../models/User';
+
+const SOLANA_RPC_ENDPOINT = process.env.SOLANA_RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com';
+const connection = new Connection(SOLANA_RPC_ENDPOINT, 'confirmed');
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { transactionSignature, publicKey, amountBurned } = req.body;
+
+  try {
+    // Connect to MongoDB
+    await connectDB();
+
+    // Step 1: Verify the transaction on Solana blockchain
+    const tx = await connection.getTransaction(transactionSignature);
+    if (!tx) {
+      return res.status(400).json({ error: 'Invalid transaction signature.' });
+    }
+
+    // Step 2: Check if the transaction has a burn instruction
+    const burnInstruction = tx.transaction.message.instructions.find(
+      (ix) => ix.programId.toString() === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+    );
+
+    if (!burnInstruction) {
+      return res.status(400).json({ error: 'No burn instruction found in transaction.' });
+    }
+
+    // Step 3: Verify that the wallet matches the signer
+    const signerKey = tx.transaction.message.accountKeys[0].toString();
+    if (signerKey !== publicKey) {
+      return res.status(400).json({ error: 'Transaction signature does not match wallet public key.' });
+    }
+
+    // Step 4: Prevent replay attacks
+    let user = await User.findOne({ walletAddress: publicKey });
+    if (user && user.transactionIds.includes(transactionSignature)) {
+      return res.status(400).json({ error: 'Transaction already processed.' });
+    }
+
+    // Step 5: Update user's virtual balance
+    if (!user) {
+      user = new User({
+        walletAddress: publicKey,
+        virtualBalance: 0,
+        transactionIds: [],
+      });
+    }
+
+    user.virtualBalance += amountBurned;
+    user.transactionIds.push(transactionSignature);
+    await user.save();
+
+    return res.status(200).json({ virtualBalance: user.virtualBalance });
+  } catch (err) {
+    console.error('Error verifying burn transaction:', err);
+    res.status(500).json({ error: 'Internal Server Error.' });
+  }
+}

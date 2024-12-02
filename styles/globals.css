@@ -1,21 +1,114 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Global Styles */
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Arial', sans-serif;
+  background-color: #121212;
+  color: #ffffff;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+button:hover {
+  transform: scale(1.05);
+}
+
+/* Container */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Card */
+.card {
+  background-color: #1e1e1e;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+/* Wallet Button */
+.wallet-button {
+  background-color: #03a9f4;
+  border: none;
+  color: white;
+  font-size: 16px;
+  padding: 10px 20px;
+  border-radius: 5px;
+}
+
+.wallet-button:hover {
+  background-color: #0288d1;
+}
+
+/* Fetch Balance Button */
+.fetch-button {
+  background-color: #8bc34a;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: none;
+  margin-top: 10px;
+}
+
+.fetch-button:hover {
+  background-color: #7cb342;
+}
+
+/* Burn Button */
+.burn-button {
+  background-color: #e91e63;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: none;
+  margin-top: 10px;
+}
+
+.burn-button:hover {
+  background-color: #d81b60;
+}
+
+/* Token List */
+.token-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.token-card {
+  background-color: #2e2e2e;
+  padding: 15px;
+  border-radius: 8px;
+  flex: 1 1 calc(50% - 20px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.token-card input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 10px;
+  border-radius: 5px;
+  border: 1px solid #666;
+  background-color: #333;
+  color: #fff;
+}
+
+/* Transaction Signature */
+.tx-signature {
+  background-color: #222;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
