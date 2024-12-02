@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 export default function Home() {
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
   const [tokens, setTokens] = useState([]);
+  const [solBalance, setSolBalance] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const getTokenAccounts = async () => {
+  const getBalances = async () => {
     if (!publicKey) {
       setError('Wallet not connected');
       return;
@@ -20,9 +22,12 @@ export default function Home() {
     setError('');
     
     try {
-      console.log('Fetching token accounts for:', publicKey.toString());
-      
-      const response = await connection.getParsedTokenAccountsByOwner(
+      // Get SOL balance
+      const balance = await connection.getBalance(publicKey);
+      setSolBalance(balance / LAMPORTS_PER_SOL);
+
+      // Get token accounts
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
         publicKey,
         {
           programId: TOKEN_PROGRAM_ID,
@@ -30,23 +35,15 @@ export default function Home() {
         'confirmed'
       );
 
-      console.log('Raw response:', response);
+      console.log('Token accounts:', tokenAccounts);
 
-      if (!response.value || response.value.length === 0) {
-        console.log('No tokens found');
-        setTokens([]);
-        setError('No tokens found in this wallet');
-        return;
-      }
-
-      const tokenDetails = response.value
-        .filter(accountInfo => {
-          const tokenAmount = accountInfo.account.data.parsed.info.tokenAmount;
-          // Only include tokens with non-zero balance
+      const tokenDetails = tokenAccounts.value
+        .filter(account => {
+          const tokenAmount = account.account.data.parsed.info.tokenAmount;
           return tokenAmount.uiAmount > 0;
         })
-        .map((accountInfo) => {
-          const parsedInfo = accountInfo.account.data.parsed.info;
+        .map((account) => {
+          const parsedInfo = account.account.data.parsed.info;
           return {
             mint: parsedInfo.mint,
             amount: parsedInfo.tokenAmount.uiAmount,
@@ -54,15 +51,14 @@ export default function Home() {
           };
         });
 
-      console.log('Processed token details:', tokenDetails);
       setTokens(tokenDetails);
       
-      if (tokenDetails.length === 0) {
-        setError('No tokens with balance found');
+      if (tokenDetails.length === 0 && balance === 0) {
+        setError('No SOL or tokens found in this wallet');
       }
     } catch (error) {
       console.error('Error details:', error);
-      setError(`Failed to fetch tokens: ${error.message}`);
+      setError(`Failed to fetch balances: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -86,7 +82,7 @@ export default function Home() {
               </div>
 
               <button 
-                onClick={getTokenAccounts}
+                onClick={getBalances}
                 disabled={loading}
                 className={`${
                   loading 
@@ -94,11 +90,20 @@ export default function Home() {
                     : 'bg-blue-500 hover:bg-blue-600'
                 } text-white px-4 py-2 rounded`}
               >
-                {loading ? 'Fetching...' : 'Fetch Token Holdings'}
+                {loading ? 'Fetching...' : 'Fetch Balances'}
               </button>
 
               {error && (
                 <p className="mt-4 text-red-500">{error}</p>
+              )}
+
+              {solBalance > 0 && (
+                <div className="mt-6">
+                  <h2 className="text-xl font-semibold mb-4">SOL Balance</h2>
+                  <div className="border p-4 rounded">
+                    <p>{solBalance.toFixed(4)} SOL</p>
+                  </div>
+                </div>
               )}
 
               {tokens.length > 0 && (
