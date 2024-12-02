@@ -1,14 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import dynamic from 'next/dynamic';
-
-// Dynamically import WalletMultiButton with ssr disabled
-const WalletMultiButton = dynamic(
-  () => import('@solana/wallet-adapter-react-ui').then(mod => mod.WalletMultiButton),
-  { ssr: false }
-);
 
 export default function Home() {
   const { publicKey, connected } = useWallet();
@@ -17,11 +11,6 @@ export default function Home() {
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const getBalances = async () => {
     if (!publicKey || !connection) {
@@ -52,6 +41,7 @@ export default function Home() {
       const tokenData = tokenAccounts.value
         .filter(account => {
           const amount = account.account.data.parsed.info.tokenAmount;
+          // Only include tokens with non-zero balance
           return amount.uiAmount > 0;
         })
         .map(account => {
@@ -76,8 +66,6 @@ export default function Home() {
       setLoading(false);
     }
   };
-
-  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
