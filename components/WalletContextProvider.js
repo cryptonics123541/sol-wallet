@@ -8,9 +8,18 @@ import { Connection } from '@solana/web3.js';
 require('@solana/wallet-adapter-react-ui/styles.css');
 
 export default function WalletContextProvider({ children }) {
-  // Using GenesysGo's public RPC endpoint
-  const endpoint = "https://ssc-dao.genesysgo.net";
+  // Using RPC Pool endpoint
+  const endpoint = "https://free.rpcpool.com";
   
+  // Configure connection
+  const config = {
+    commitment: 'confirmed',
+    disableRetryOnRateLimit: false,
+    httpHeaders: {
+      'Content-Type': 'application/json'
+    }
+  };
+
   const wallets = useMemo(
     () => [
       new PhantomWalletAdapter(),
@@ -19,7 +28,7 @@ export default function WalletContextProvider({ children }) {
   );
 
   return (
-    <ConnectionProvider endpoint={endpoint}>
+    <ConnectionProvider endpoint={endpoint} config={config}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           {children}
