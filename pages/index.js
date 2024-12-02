@@ -22,24 +22,32 @@ export default function Home() {
     setError('');
     
     try {
+      // Debug log
+      console.log('Fetching balances for address:', publicKey.toString());
+      console.log('Connection endpoint:', connection.rpcEndpoint);
+
       // Get SOL balance
       const balance = await connection.getBalance(publicKey);
-      setSolBalance(balance / LAMPORTS_PER_SOL);
+      console.log('Raw SOL balance (lamports):', balance);
+      const solBalanceCalculated = balance / LAMPORTS_PER_SOL;
+      console.log('Converted SOL balance:', solBalanceCalculated);
+      setSolBalance(solBalanceCalculated);
 
-      // Get token accounts
+      // Get token accounts with more detailed error handling
+      console.log('Fetching token accounts...');
       const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
         publicKey,
         {
           programId: TOKEN_PROGRAM_ID,
-        },
-        'confirmed'
+        }
       );
 
-      console.log('Token accounts:', tokenAccounts);
+      console.log('Raw token accounts response:', tokenAccounts);
 
       const tokenDetails = tokenAccounts.value
         .filter(account => {
           const tokenAmount = account.account.data.parsed.info.tokenAmount;
+          console.log('Token amount for account:', tokenAmount);
           return tokenAmount.uiAmount > 0;
         })
         .map((account) => {
@@ -51,13 +59,14 @@ export default function Home() {
           };
         });
 
+      console.log('Processed token details:', tokenDetails);
       setTokens(tokenDetails);
       
       if (tokenDetails.length === 0 && balance === 0) {
         setError('No SOL or tokens found in this wallet');
       }
     } catch (error) {
-      console.error('Error details:', error);
+      console.error('Detailed error:', error);
       setError(`Failed to fetch balances: ${error.message}`);
     } finally {
       setLoading(false);
