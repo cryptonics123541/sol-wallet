@@ -1,17 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import dynamic from 'next/dynamic';
+
+// Dynamically import WalletMultiButton with ssr disabled
+const WalletMultiButton = dynamic(
+  () => import('@solana/wallet-adapter-react-ui').then(mod => mod.WalletMultiButton),
+  { ssr: false }
+);
 
 export default function Home() {
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
   const [solBalance, setSolBalance] = useState(0);
+  const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
 
-  const getBalance = async () => {
-    if (!publicKey) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const getBalances = async () => {
+    if (!publicKey || !connection) {
       setError('Wallet not connected');
       return;
     }
@@ -20,27 +33,51 @@ export default function Home() {
     setError('');
     
     try {
-      console.log('Fetching balance for address:', publicKey.toString());
-      
-      // Simple SOL balance check
-      const balance = await connection.getBalance(publicKey, 'confirmed');
-      console.log('Raw balance:', balance);
-      
+      // Get SOL balance
+      const balance = await connection.getBalance(publicKey);
       const solBalanceCalculated = balance / LAMPORTS_PER_SOL;
-      console.log('SOL balance:', solBalanceCalculated);
-      
       setSolBalance(solBalanceCalculated);
+
+      // Get SPL token accounts
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+        publicKey,
+        {
+          programId: TOKEN_PROGRAM_ID,
+        }
+      );
+
+      console.log('Token accounts:', tokenAccounts);
+
+      // Filter and format token data
+      const tokenData = tokenAccounts.value
+        .filter(account => {
+          const amount = account.account.data.parsed.info.tokenAmount;
+          return amount.uiAmount > 0;
+        })
+        .map(account => {
+          const parsedInfo = account.account.data.parsed.info;
+          return {
+            mint: parsedInfo.mint,
+            amount: parsedInfo.tokenAmount.uiAmount,
+            decimals: parsedInfo.tokenAmount.decimals,
+          };
+        });
+
+      setTokens(tokenData);
       
-      if (balance === 0) {
-        setError('No SOL found in this wallet');
+      if (balance === 0 && tokenData.length === 0) {
+        setError('No SOL or tokens found in this wallet');
       }
+
     } catch (err) {
-      console.error('Error details:', err);
-      setError(`Error fetching balance: ${err.message}`);
+      console.error('Detailed error:', err);
+      setError(`Error fetching balances: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -60,7 +97,7 @@ export default function Home() {
               </div>
 
               <button 
-                onClick={getBalance}
+                onClick={getBalances}
                 disabled={loading}
                 className={`${
                   loading 
@@ -68,7 +105,7 @@ export default function Home() {
                     : 'bg-blue-500 hover:bg-blue-600'
                 } text-white px-4 py-2 rounded`}
               >
-                {loading ? 'Fetching...' : 'Fetch SOL Balance'}
+                {loading ? 'Fetching...' : 'Fetch Balances'}
               </button>
 
               {error && (
@@ -80,6 +117,21 @@ export default function Home() {
                   <h2 className="text-xl font-semibold mb-4">SOL Balance</h2>
                   <div className="border p-4 rounded">
                     <p>{solBalance.toFixed(4)} SOL</p>
+                  </div>
+                </div>
+              )}
+
+              {tokens.length > 0 && (
+                <div className="mt-6">
+                  <h2 className="text-xl font-semibold mb-4">Token Holdings</h2>
+                  <div className="space-y-4">
+                    {tokens.map((token, index) => (
+                      <div key={index} className="border p-4 rounded">
+                        <p className="font-mono text-sm mb-2">Mint: {token.mint}</p>
+                        <p>Amount: {token.amount}</p>
+                        <p>Decimals: {token.decimals}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
