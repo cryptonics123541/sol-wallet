@@ -3,17 +3,14 @@ import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
-import { clusterApiUrl } from '@solana/web3.js';
+import { clusterApiUrl, Connection } from '@solana/web3.js';
 
 require('@solana/wallet-adapter-react-ui/styles.css');
 
 export default function WalletContextProvider({ children }) {
-  // Change to mainnet-beta
-  const network = WalletAdapterNetwork.Mainnet;
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  // Using a more reliable RPC endpoint
+  const endpoint = "https://api.mainnet-beta.solana.com";
   
-  console.log('Using endpoint:', endpoint);  // Debug log
-
   const wallets = useMemo(
     () => [
       new PhantomWalletAdapter(),
@@ -21,8 +18,15 @@ export default function WalletContextProvider({ children }) {
     []
   );
 
+  // Configure the connection
+  const config = {
+    commitment: 'confirmed',
+    wsEndpoint: "wss://api.mainnet-beta.solana.com",
+    confirmTransactionInitialTimeout: 60000
+  };
+
   return (
-    <ConnectionProvider endpoint={endpoint}>
+    <ConnectionProvider endpoint={endpoint} config={config}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           {children}
