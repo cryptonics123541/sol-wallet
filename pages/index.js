@@ -48,6 +48,7 @@ export default function Home() {
         if (!selectedToken || !burnAmount) return;
         
         setLoading(true);
+        let signature = '';
         try {
             const selectedTokenData = tokens.find(t => t.mint === selectedToken);
             if (!selectedTokenData) throw new Error('Token not found');
@@ -63,7 +64,7 @@ export default function Home() {
                 publicKey
             );
 
-            // Create the burn instruction
+            // Use standard token-program instructions
             const burnInstruction = createBurnInstruction(
                 tokenAccountAddress,
                 mintPubkey,
@@ -71,18 +72,36 @@ export default function Home() {
                 Math.floor(adjustedAmount)
             );
 
-            // Create and send transaction
+            // Create transaction with single instruction
             const transaction = new Transaction().add(burnInstruction);
+            
+            // Use finalized commitment
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+            transaction.recentBlockhash = blockhash;
             transaction.feePayer = publicKey;
-            transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
+            // Sign and send with proper error handling
             const signedTransaction = await signTransaction(transaction);
-            const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-            await connection.confirmTransaction(signature);
+            signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+                skipPreflight: false,
+                preflightCommitment: 'finalized',
+            });
+
+            // Wait for confirmation with proper commitment
+            const confirmation = await connection.confirmTransaction({
+                signature,
+                blockhash,
+                lastValidBlockHeight
+            }, 'finalized');
+
+            if (confirmation.value.err) {
+                throw new Error('Transaction failed');
+            }
 
             alert('Token burn successful!');
-            fetchBalanceAndTokens(); // Refresh token list
-            setBurnAmount(''); // Reset burn amount
+            await fetchBalanceAndTokens();
+            setBurnAmount('');
+            setSelectedToken(null);
         } catch (error) {
             console.error('Error burning token:', error);
             alert(`Error burning token: ${error.message}`);
@@ -156,6 +175,14 @@ export default function Home() {
                                 </div>
                             ))}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {loading && (
+                <div className="fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-50">
+                    <div className="bg-white p-4 rounded-lg">
+                        <p>Processing transaction...</p>
                     </div>
                 </div>
             )}

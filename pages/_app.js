@@ -8,15 +8,18 @@ function MyApp({ Component, pageProps }) {
     return (
         <>
             <Head>
+                {/* Essential Metadata */}
                 <title>Sol Token Burner</title>
-                <meta name="description" content="A secure tool for burning Solana tokens" />
+                <meta name="description" content="Secure Solana token burning application" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
                 
-                {/* Phantom dApp Metadata */}
-                <meta name="title" content="Sol Token Burner" />
-                <meta name="og:title" content="Sol Token Burner" />
-                <meta name="og:description" content="A secure tool for burning Solana tokens" />
-                <meta name="og:image" content="/icon.png" />
+                {/* Security and Trust Signals */}
+                <meta property="og:title" content="Sol Token Burner" />
+                <meta property="og:type" content="website" />
+                <meta property="og:description" content="Secure Solana token burning application" />
+                
+                {/* CSP Headers */}
+                <meta httpEquiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.solana.com https://*.helius-rpc.com;" />
             </Head>
             <ClientWalletProvider>
                 <Component {...pageProps} />
