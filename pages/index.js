@@ -6,7 +6,24 @@ import { PublicKey, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, createBurnInstruction, createTransferInstruction, getAssociatedTokenAddress, getAccount, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 
 export default function Home() {
-    // Keep all your existing state and functions here
+    const { connection } = useConnection();
+    const wallet = useWallet();
+    const { publicKey, signTransaction } = wallet;
+    const [balance, setBalance] = useState(0);
+    const [tokens, setTokens] = useState([]);
+    const [selectedToken, setSelectedToken] = useState(null);
+    const [burnAmount, setBurnAmount] = useState('');
+    const [transferAmount, setTransferAmount] = useState('');
+    const [recipientAddress, setRecipientAddress] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (wallet.connected && publicKey) {
+            fetchBalanceAndTokens();
+        }
+    }, [wallet.connected, publicKey]);
+
+    // ... keep your existing functions (fetchBalanceAndTokens, burnToken, transferToken) ...
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -17,7 +34,7 @@ export default function Home() {
                     <WalletMultiButton />
                 </div>
 
-                {!connected ? (
+                {!wallet.connected ? (
                     <div className="text-center py-20">
                         <h2 className="text-2xl font-semibold text-gray-700 mb-4">Welcome to Solana Token Manager</h2>
                         <p className="text-gray-600 mb-4">Please connect your wallet to continue</p>
