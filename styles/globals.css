@@ -1,114 +1,173 @@
 /* Global Styles */
 body {
-  font-family: 'Arial', sans-serif;
-  background-color: #121212;
-  color: #ffffff;
-  line-height: 1.6;
+  font-family: 'Roboto', Arial, sans-serif;
+  background-color: #f5f5f5; /* Light background for a modern look */
+  color: #333; /* Dark text for readability */
   margin: 0;
   padding: 0;
 }
 
-a {
-  text-decoration: none;
-}
-
-button {
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-button:hover {
-  transform: scale(1.05);
-}
-
-/* Container */
 .container {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 20px;
+  padding-top: 120px; /* To accommodate for the fixed header */
 }
 
-/* Card */
-.card {
-  background-color: #1e1e1e;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  padding: 20px;
-  margin-bottom: 20px;
+/* Header Bar */
+.header-bar {
+  background-color: #ffffff;
+  color: #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
+  z-index: 1000;
 }
 
-/* Wallet Button */
+.title {
+  font-size: 1.8rem;
+  font-weight: bold;
+}
+
+.wallet-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .wallet-button {
-  background-color: #03a9f4;
+  background-color: #007bff; /* Primary button color */
+  color: #ffffff;
+  padding: 10px 16px;
   border: none;
-  color: white;
-  font-size: 16px;
-  padding: 10px 20px;
   border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  font-weight: bold;
 }
 
 .wallet-button:hover {
-  background-color: #0288d1;
+  background-color: #0056b3; /* Darker shade for hover effect */
 }
 
-/* Fetch Balance Button */
+/* Card Styles */
+.card {
+  background-color: #ffffff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+/* Fetch Button */
 .fetch-button {
-  background-color: #8bc34a;
-  color: #ffffff;
   padding: 10px 20px;
-  border-radius: 5px;
+  background-color: #28a745; /* Success green for emphasis */
   border: none;
-  margin-top: 10px;
+  border-radius: 5px;
+  color: #ffffff;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
 }
 
-.fetch-button:hover {
-  background-color: #7cb342;
+.fetch-button:disabled {
+  background-color: #c3c3c3;
+  cursor: not-allowed;
+}
+
+.fetch-button:hover:not(:disabled) {
+  background-color: #218838; /* Darker shade for hover */
+}
+
+/* SOL Balance Section */
+.sol-balance-section {
+  border-left: 4px solid #007bff;
+  padding-left: 15px;
+  margin-top: 10px;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 5px;
+}
+
+/* Token Card */
+.token-card {
+  border-top: 4px solid #007bff;
+  padding-top: 10px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin-bottom: 15px;
+}
+
+/* Burn Input Field */
+.burn-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
 }
 
 /* Burn Button */
 .burn-button {
-  background-color: #e91e63;
-  color: #ffffff;
   padding: 10px 20px;
-  border-radius: 5px;
+  background-color: #dc3545; /* Danger red */
   border: none;
-  margin-top: 10px;
-}
-
-.burn-button:hover {
-  background-color: #d81b60;
-}
-
-/* Token List */
-.token-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-.token-card {
-  background-color: #2e2e2e;
-  padding: 15px;
-  border-radius: 8px;
-  flex: 1 1 calc(50% - 20px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.token-card input {
-  width: 100%;
-  padding: 8px;
-  margin-top: 10px;
+  color: #ffffff;
   border-radius: 5px;
-  border: 1px solid #666;
-  background-color: #333;
-  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
 }
 
-/* Transaction Signature */
+.burn-button:disabled {
+  background-color: #c3c3c3;
+  cursor: not-allowed;
+}
+
+.burn-button:hover:not(:disabled) {
+  background-color: #c82333; /* Darker red for hover effect */
+}
+
+/* Miscellaneous */
+.text-xl {
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.text-2xl {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.font-mono {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #555; /* A slightly darker gray for better contrast */
+}
+
 .tx-signature {
-  background-color: #222;
-  padding: 10px;
-  border-radius: 8px;
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   margin-top: 20px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+p {
+  margin: 0;
+  padding-bottom: 10px;
+}
+
+h1,
+h2 {
+  color: #007bff; /* Consistent blue heading for branding */
 }
