@@ -1,18 +1,18 @@
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey } from '@solana/web3.js';
+import { useState } from 'react';
 
-const TokenModal = ({ 
-    isOpen, 
-    onClose, 
-    balance, 
-    tokenBalance, 
-    burnAmount, 
-    setBurnAmount, 
-    loading, 
-    onBurn 
+const TokenModal = ({
+    isOpen,
+    onClose,
+    balance,
+    tokenBalance,
+    onBurn,
+    loading,
+    error
 }) => {
     const { publicKey } = useWallet();
-    
+    const [burnAmount, setBurnAmount] = useState('');
+
     if (!isOpen) return null;
 
     return (
@@ -22,7 +22,7 @@ const TokenModal = ({
                     <h2 className="text-xl font-semibold">Manage Tokens</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700">×</button>
                 </div>
-                
+
                 <div className="space-y-4">
                     {publicKey && (
                         <>
@@ -32,12 +32,12 @@ const TokenModal = ({
                                 <p className="text-sm text-gray-600 mt-2">SOL Balance:</p>
                                 <p className="font-semibold">{balance.toFixed(4)} SOL</p>
                             </div>
-                            
+
                             {tokenBalance ? (
                                 <div>
                                     <p className="text-sm text-gray-600">Token Balance:</p>
                                     <p className="font-semibold">{tokenBalance.amount}</p>
-                                    
+
                                     <div className="mt-4">
                                         <input
                                             type="number"
@@ -49,7 +49,7 @@ const TokenModal = ({
                                             max={tokenBalance.amount}
                                         />
                                         <button
-                                            onClick={onBurn}
+                                            onClick={() => onBurn(burnAmount)}
                                             disabled={!burnAmount || loading}
                                             className="w-full mt-2 p-2 bg-red-600 text-white rounded disabled:bg-gray-300"
                                         >
@@ -63,6 +63,7 @@ const TokenModal = ({
                         </>
                     )}
                 </div>
+                {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
             </div>
         </div>
     );
