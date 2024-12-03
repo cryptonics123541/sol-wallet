@@ -19,6 +19,8 @@ export default function Home() {
   const { connection } = useConnection();
   const [solBalance, setSolBalance] = useState(0);
   const [tokens, setTokens] = useState([]);
+  const [cachedBalances, setCachedBalances] = useState(null);
+  const [lastFetched, setLastFetched] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingToken, setLoadingToken] = useState('');
   const [error, setError] = useState('');
@@ -41,8 +43,14 @@ export default function Home() {
     }
   }, [publicKey]);
 
-  // Fetch balances and tokens from the user's wallet
+  // Fetch balances and tokens from the user's wallet with caching
   const getBalances = async () => {
+    const now = Date.now();
+    if (cachedBalances && now - lastFetched < 60000) {
+      // If we fetched balances in the last 60 seconds, use cached values
+      return;
+    }
+
     if (!publicKey || !connection) {
       setError('Wallet not connected');
       return;
@@ -71,6 +79,8 @@ export default function Home() {
       });
 
       setTokens(tokenData);
+      setCachedBalances(tokenData);
+      setLastFetched(Date.now());
     } catch (err) {
       console.error('Detailed error:', err);
       setError(`Error fetching balances: ${err.message}`);

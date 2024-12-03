@@ -1,9 +1,17 @@
-import { Connection, PublicKey } from '@solana/web3.js';
+import express from 'express';
+import rateLimit from 'express-rate-limit';
 import connectDB from '../../utils/db';
 import User from '../../models/User';
 
-const SOLANA_RPC_ENDPOINT = process.env.SOLANA_RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com';
-const connection = new Connection(SOLANA_RPC_ENDPOINT, 'confirmed');
+const app = express();
+app.use(express.json());
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per window
+});
+
+app.use('/api/burn-tokens', limiter);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,39 +21,28 @@ export default async function handler(req, res) {
   const { transactionSignature, publicKey, amountBurned } = req.body;
 
   try {
-    // Artificial delay to mimic local response time
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
     // Connect to MongoDB
     await connectDB();
 
-    // Step 1: Verify if the transaction has already been processed
+    // Find or create the user in the database
     let user = await User.findOne({ walletAddress: publicKey });
-    if (user && user.transactionIds.includes(transactionSignature)) {
+    if (!user) {
+      user = new User({ walletAddress: publicKey, virtualBalance: 0, transactionIds: [] });
+    }
+
+    // Verify transaction not already processed
+    if (user.transactionIds.includes(transactionSignature)) {
       return res.status(400).json({ error: 'Transaction already processed.' });
     }
 
-    // Step 2: Verify the transaction on the Solana blockchain
-    const tx = await connection.getTransaction(transactionSignature, {
-      commitment: 'confirmed',
-    });
-    if (!tx) {
-      return res.status(400).json({ error: 'Invalid transaction signature.' });
-    }
-
-    // Step 3: Update user's virtual balance atomically
-    user = await User.findOneAndUpdate(
-      { walletAddress: publicKey },
-      {
-        $inc: { virtualBalance: amountBurned },
-        $addToSet: { transactionIds: transactionSignature },
-      },
-      { upsert: true, new: true }
-    );
+    // Update user's virtual balance and add transaction ID
+    user.virtualBalance += amountBurned;
+    user.transactionIds.push(transactionSignature);
+    await user.save();
 
     return res.status(200).json({ virtualBalance: user.virtualBalance });
   } catch (err) {
     console.error('Error verifying burn transaction:', err);
-    return res.status(500).json({ error: 'Internal Server Error during transaction processing.' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
