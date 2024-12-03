@@ -114,25 +114,27 @@ export default function Home() {
       await connection.confirmTransaction(transactionSignature);
       setBurnTxSignature(transactionSignature);
 
-      // Once the transaction is confirmed, asynchronously notify the backend
-      fetch('/api/burn-tokens', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          transactionSignature,
-          publicKey: publicKey.toString(),
-          amountBurned: amountToBurn,
-        }),
-      }).catch((err) => {
-        console.error('Error notifying backend:', err);
-      });
-
-      // Update virtual balance after successful burn
+      // Update virtual balance after successful burn (simulate here without backend)
       const newVirtualBalance = virtualBalance + amountToBurn;
       setVirtualBalance(newVirtualBalance);
       updateVirtualBalance(newVirtualBalance);
+
+      // Delay backend notification (optional, can be reintroduced after testing)
+      setTimeout(() => {
+        fetch('/api/burn-tokens', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transactionSignature,
+            publicKey: publicKey.toString(),
+            amountBurned: amountToBurn,
+          }),
+        }).catch((err) => {
+          console.error('Error notifying backend:', err);
+        });
+      }, 5000); // Introduce a delay of 5 seconds
     } catch (err) {
       console.error('Error while burning:', err);
       setError(`Burning tokens failed: ${err.message}`);
