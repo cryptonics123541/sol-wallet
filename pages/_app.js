@@ -1,12 +1,5 @@
-import '../styles/globals.css';
-import WalletContextProvider from '../components/WalletContextProvider';
+import "@/styles/globals.css";
 
-function MyApp({ Component, pageProps }) {
-  return (
-    <WalletContextProvider>
-      <Component {...pageProps} />
-    </WalletContextProvider>
-  );
+export default function App({ Component, pageProps }) {
+  return <Component {...pageProps} />;
 }
-
-export default MyApp;
