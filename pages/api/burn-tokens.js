@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { transactionSignature, publicKey, amountBurned } = req.body;
+  const { transactionSignature, publicKey, amountBurned, nonce, challenge, signature } = req.body;
 
   try {
     // Connect to MongoDB
@@ -60,6 +60,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ virtualBalance: user.virtualBalance });
   } catch (err) {
     console.error('Error verifying burn transaction:', err);
-    res.status(500).json({ error: 'Internal Server Error.' });
+    return res.status(500).json({ error: 'Internal Server Error. Please try again later.' });
   }
 }
