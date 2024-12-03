@@ -1,24 +1,46 @@
-import express from 'express';
-import rateLimit from 'express-rate-limit';
 import connectDB from '../../utils/db';
 import User from '../../models/User';
 
-const app = express();
-app.use(express.json());
+let requestCounts = {};
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX = 10; // Limit each IP to 10 requests per window
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per window
-});
+// Simple rate limiter for Next.js API route
+const rateLimiter = (req) => {
+  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
-app.use('/api/burn-tokens', limiter);
+  if (!requestCounts[ip]) {
+    requestCounts[ip] = { count: 1, timestamp: Date.now() };
+  } else {
+    if (Date.now() - requestCounts[ip].timestamp < RATE_LIMIT_WINDOW) {
+      if (requestCounts[ip].count >= RATE_LIMIT_MAX) {
+        return false; // Rate limit exceeded
+      }
+      requestCounts[ip].count += 1;
+    } else {
+      // Reset rate limit window
+      requestCounts[ip] = { count: 1, timestamp: Date.now() };
+    }
+  }
+
+  return true;
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Rate limiting logic
+  if (!rateLimiter(req)) {
+    return res.status(429).json({ error: 'Too many requests, please try again later.' });
+  }
+
   const { transactionSignature, publicKey, amountBurned } = req.body;
+
+  if (!transactionSignature || !publicKey || !amountBurned) {
+    return res.status(400).json({ error: 'Missing required fields.' });
+  }
 
   try {
     // Connect to MongoDB
