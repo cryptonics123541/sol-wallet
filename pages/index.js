@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { PublicKey, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID, createBurnInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, createTransferInstruction, getAssociatedTokenAddress, getAccount, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 
 export default function Home() {
     const { connection } = useConnection();
@@ -11,7 +11,8 @@ export default function Home() {
     const [balance, setBalance] = useState(0);
     const [tokens, setTokens] = useState([]);
     const [selectedToken, setSelectedToken] = useState(null);
-    const [burnAmount, setBurnAmount] = useState('');
+    const [transferAmount, setTransferAmount] = useState('');
+    const [recipientAddress, setRecipientAddress] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -22,11 +23,9 @@ export default function Home() {
 
     const fetchBalanceAndTokens = async () => {
         try {
-            // Fetch SOL balance
             const balance = await connection.getBalance(publicKey);
             setBalance(balance / LAMPORTS_PER_SOL);
 
-            // Fetch SPL tokens
             const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
                 programId: TOKEN_PROGRAM_ID,
             });
@@ -35,7 +34,6 @@ export default function Home() {
                 mint: accountInfo.account.data.parsed.info.mint,
                 amount: accountInfo.account.data.parsed.info.tokenAmount.uiAmount,
                 decimals: accountInfo.account.data.parsed.info.tokenAmount.decimals,
-                address: accountInfo.pubkey,
             }));
 
             setTokens(tokenList);
@@ -44,50 +42,85 @@ export default function Home() {
         }
     };
 
-    const burnToken = async () => {
-        if (!selectedToken || !burnAmount) return;
+    const transferToken = async () => {
+        if (!selectedToken || !transferAmount || !recipientAddress) return;
         
         setLoading(true);
         let signature = '';
+        
         try {
+            // Input validation
+            if (isNaN(transferAmount) || parseFloat(transferAmount) <= 0) {
+                throw new Error('Invalid transfer amount');
+            }
+
+            let recipientPublicKey;
+            try {
+                recipientPublicKey = new PublicKey(recipientAddress);
+            } catch {
+                throw new Error('Invalid recipient address');
+            }
+
             const selectedTokenData = tokens.find(t => t.mint === selectedToken);
             if (!selectedTokenData) throw new Error('Token not found');
+            if (selectedTokenData.amount < parseFloat(transferAmount)) {
+                throw new Error('Insufficient token balance');
+            }
 
-            const mintPubkey = new PublicKey(selectedToken);
-            const tokenAmount = parseFloat(burnAmount);
-            const decimals = selectedTokenData.decimals;
-            const adjustedAmount = tokenAmount * Math.pow(10, decimals);
+            const mintPublicKey = new PublicKey(selectedToken);
 
-            // Get the token account address
-            const tokenAccountAddress = await getAssociatedTokenAddress(
-                mintPubkey,
+            // Get source token account
+            const sourceTokenAccount = await getAssociatedTokenAddress(
+                mintPublicKey,
                 publicKey
             );
 
-            // Use standard token-program instructions
-            const burnInstruction = createBurnInstruction(
-                tokenAccountAddress,
-                mintPubkey,
-                publicKey,
-                Math.floor(adjustedAmount)
+            // Get destination token account
+            const destinationTokenAccount = await getAssociatedTokenAddress(
+                mintPublicKey,
+                recipientPublicKey
             );
 
-            // Create transaction with single instruction
-            const transaction = new Transaction().add(burnInstruction);
-            
-            // Use finalized commitment
+            const transaction = new Transaction();
+
+            // Check if destination token account exists
+            try {
+                await getAccount(connection, destinationTokenAccount);
+            } catch (error) {
+                // If account doesn't exist, add instruction to create it
+                transaction.add(
+                    createAssociatedTokenAccountInstruction(
+                        publicKey,
+                        destinationTokenAccount,
+                        recipientPublicKey,
+                        mintPublicKey
+                    )
+                );
+            }
+
+            // Add transfer instruction
+            const transferInstruction = createTransferInstruction(
+                sourceTokenAccount,
+                destinationTokenAccount,
+                publicKey,
+                Math.floor(parseFloat(transferAmount) * Math.pow(10, selectedTokenData.decimals))
+            );
+
+            transaction.add(transferInstruction);
+
+            // Get latest blockhash
             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = publicKey;
 
-            // Sign and send with proper error handling
+            // Sign and send transaction
             const signedTransaction = await signTransaction(transaction);
             signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
                 skipPreflight: false,
                 preflightCommitment: 'finalized',
             });
 
-            // Wait for confirmation with proper commitment
+            // Wait for confirmation
             const confirmation = await connection.confirmTransaction({
                 signature,
                 blockhash,
@@ -98,13 +131,14 @@ export default function Home() {
                 throw new Error('Transaction failed');
             }
 
-            alert('Token burn successful!');
+            alert(`Transfer successful! Signature: ${signature}`);
             await fetchBalanceAndTokens();
-            setBurnAmount('');
+            setTransferAmount('');
+            setRecipientAddress('');
             setSelectedToken(null);
         } catch (error) {
-            console.error('Error burning token:', error);
-            alert(`Error burning token: ${error.message}`);
+            console.error('Transfer error:', error);
+            alert(`Transfer failed: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -112,7 +146,7 @@ export default function Home() {
 
     return (
         <div className="p-8 max-w-4xl mx-auto">
-            <h1 className="text-4xl font-bold mb-8">Solana Wallet Integration</h1>
+            <h1 className="text-4xl font-bold mb-8">Safe SPL Token Transfer</h1>
             
             <div className="mb-8">
                 <WalletMultiButton />
@@ -127,12 +161,13 @@ export default function Home() {
                     </div>
 
                     <div className="bg-white p-6 rounded-lg shadow">
-                        <h2 className="text-2xl font-semibold mb-4">SPL Tokens</h2>
-                        <div className="mb-4 space-y-4">
-                            <div className="flex gap-4">
+                        <h2 className="text-2xl font-semibold mb-4">Transfer SPL Token</h2>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Select Token</label>
                                 <select 
                                     onChange={(e) => setSelectedToken(e.target.value)}
-                                    className="p-2 border rounded flex-1"
+                                    className="w-full p-2 border rounded"
                                     value={selectedToken || ""}
                                 >
                                     <option value="">Select a token</option>
@@ -143,31 +178,44 @@ export default function Home() {
                                     ))}
                                 </select>
                             </div>
-                            
-                            {selectedToken && (
-                                <div className="flex gap-4">
-                                    <input
-                                        type="number"
-                                        placeholder="Amount to burn"
-                                        value={burnAmount}
-                                        onChange={(e) => setBurnAmount(e.target.value)}
-                                        className="p-2 border rounded flex-1"
-                                        min="0"
-                                        step="any"
-                                    />
-                                    <button 
-                                        onClick={burnToken}
-                                        disabled={!selectedToken || !burnAmount || loading}
-                                        className="px-4 py-2 bg-red-500 text-white rounded disabled:bg-gray-300"
-                                    >
-                                        {loading ? 'Burning...' : 'Burn Token'}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
 
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Recipient Address</label>
+                                <input
+                                    type="text"
+                                    placeholder="Recipient's Solana address"
+                                    value={recipientAddress}
+                                    onChange={(e) => setRecipientAddress(e.target.value)}
+                                    className="w-full p-2 border rounded"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Amount</label>
+                                <input
+                                    type="number"
+                                    placeholder="Amount to transfer"
+                                    value={transferAmount}
+                                    onChange={(e) => setTransferAmount(e.target.value)}
+                                    className="w-full p-2 border rounded"
+                                    min="0"
+                                    step="any"
+                                />
+                            </div>
+
+                            <button 
+                                onClick={transferToken}
+                                disabled={!selectedToken || !transferAmount || !recipientAddress || loading}
+                                className="w-full px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
+                            >
+                                {loading ? 'Processing...' : 'Transfer Token'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-lg shadow">
+                        <h3 className="text-xl font-semibold mb-4">Your Tokens:</h3>
                         <div className="space-y-4">
-                            <h3 className="text-xl font-semibold">Your Tokens:</h3>
                             {tokens.map((token, index) => (
                                 <div key={index} className="p-4 border rounded">
                                     <p className="mb-2 break-all">Mint: {token.mint}</p>
