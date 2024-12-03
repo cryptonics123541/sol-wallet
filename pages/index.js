@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { PublicKey, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID, createTransferInstruction, getAssociatedTokenAddress, getAccount, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, createBurnInstruction, createTransferInstruction, getAssociatedTokenAddress, getAccount, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 
 export default function Home() {
     const { connection } = useConnection();
@@ -11,36 +11,12 @@ export default function Home() {
     const [balance, setBalance] = useState(0);
     const [tokens, setTokens] = useState([]);
     const [selectedToken, setSelectedToken] = useState(null);
+    const [burnAmount, setBurnAmount] = useState('');
     const [transferAmount, setTransferAmount] = useState('');
     const [recipientAddress, setRecipientAddress] = useState('');
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (connected && publicKey) {
-            fetchBalanceAndTokens();
-        }
-    }, [connected, publicKey]);
-
-    const fetchBalanceAndTokens = async () => {
-        try {
-            const balance = await connection.getBalance(publicKey);
-            setBalance(balance / LAMPORTS_PER_SOL);
-
-            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-                programId: TOKEN_PROGRAM_ID,
-            });
-
-            const tokenList = tokenAccounts.value.map(accountInfo => ({
-                mint: accountInfo.account.data.parsed.info.mint,
-                amount: accountInfo.account.data.parsed.info.tokenAmount.uiAmount,
-                decimals: accountInfo.account.data.parsed.info.tokenAmount.decimals,
-            }));
-
-            setTokens(tokenList);
-        } catch (error) {
-            console.error('Error fetching balance:', error);
-        }
-    };
+    // ... keep your existing fetchBalanceAndTokens and burnToken functions ...
 
     const transferToken = async () => {
         if (!selectedToken || !transferAmount || !recipientAddress) return;
@@ -146,7 +122,7 @@ export default function Home() {
 
     return (
         <div className="p-8 max-w-4xl mx-auto">
-            <h1 className="text-4xl font-bold mb-8">Safe SPL Token Transfer</h1>
+            <h1 className="text-4xl font-bold mb-8">Solana Token Operations</h1>
             
             <div className="mb-8">
                 <WalletMultiButton />
@@ -161,8 +137,9 @@ export default function Home() {
                     </div>
 
                     <div className="bg-white p-6 rounded-lg shadow">
-                        <h2 className="text-2xl font-semibold mb-4">Transfer SPL Token</h2>
-                        <div className="space-y-4">
+                        <h2 className="text-2xl font-semibold mb-4">Token Operations</h2>
+                        <div className="space-y-6">
+                            {/* Token Selection */}
                             <div>
                                 <label className="block text-sm font-medium mb-2">Select Token</label>
                                 <select 
@@ -179,37 +156,71 @@ export default function Home() {
                                 </select>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Recipient Address</label>
-                                <input
-                                    type="text"
-                                    placeholder="Recipient's Solana address"
-                                    value={recipientAddress}
-                                    onChange={(e) => setRecipientAddress(e.target.value)}
-                                    className="w-full p-2 border rounded"
-                                />
-                            </div>
+                            {selectedToken && (
+                                <>
+                                    {/* Transfer Section */}
+                                    <div className="border-t pt-4">
+                                        <h3 className="text-lg font-semibold mb-4">Transfer Token</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-2">Recipient Address</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Recipient's Solana address"
+                                                    value={recipientAddress}
+                                                    onChange={(e) => setRecipientAddress(e.target.value)}
+                                                    className="w-full p-2 border rounded"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-2">Transfer Amount</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Amount to transfer"
+                                                    value={transferAmount}
+                                                    onChange={(e) => setTransferAmount(e.target.value)}
+                                                    className="w-full p-2 border rounded"
+                                                    min="0"
+                                                    step="any"
+                                                />
+                                            </div>
+                                            <button 
+                                                onClick={transferToken}
+                                                disabled={!transferAmount || !recipientAddress || loading}
+                                                className="w-full px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
+                                            >
+                                                {loading ? 'Processing...' : 'Transfer Token'}
+                                            </button>
+                                        </div>
+                                    </div>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Amount</label>
-                                <input
-                                    type="number"
-                                    placeholder="Amount to transfer"
-                                    value={transferAmount}
-                                    onChange={(e) => setTransferAmount(e.target.value)}
-                                    className="w-full p-2 border rounded"
-                                    min="0"
-                                    step="any"
-                                />
-                            </div>
-
-                            <button 
-                                onClick={transferToken}
-                                disabled={!selectedToken || !transferAmount || !recipientAddress || loading}
-                                className="w-full px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
-                            >
-                                {loading ? 'Processing...' : 'Transfer Token'}
-                            </button>
+                                    {/* Burn Section */}
+                                    <div className="border-t pt-4">
+                                        <h3 className="text-lg font-semibold mb-4">Burn Token</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-2">Burn Amount</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Amount to burn"
+                                                    value={burnAmount}
+                                                    onChange={(e) => setBurnAmount(e.target.value)}
+                                                    className="w-full p-2 border rounded"
+                                                    min="0"
+                                                    step="any"
+                                                />
+                                            </div>
+                                            <button 
+                                                onClick={burnToken}
+                                                disabled={!burnAmount || loading}
+                                                className="w-full px-4 py-2 bg-red-500 text-white rounded disabled:bg-gray-300"
+                                            >
+                                                {loading ? 'Processing...' : 'Burn Token'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
