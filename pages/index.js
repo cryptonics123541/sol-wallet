@@ -97,13 +97,13 @@ export default function Home() {
     try {
       setError('');
 
-      // Create burn transaction
+      // Create the burn transaction instruction
       const burnAmountInLamports = amountToBurn * Math.pow(10, token.decimals);
       const transaction = new Transaction().add(
         createBurnInstruction(token.tokenAccount, new PublicKey(token.mint), publicKey, burnAmountInLamports, [])
       );
 
-      // Add recent blockhash and fee payer
+      // Add the recent blockhash and set fee payer
       const latestBlockhash = await connection.getLatestBlockhash();
       transaction.recentBlockhash = latestBlockhash.blockhash;
       transaction.feePayer = publicKey;
@@ -114,8 +114,8 @@ export default function Home() {
       await connection.confirmTransaction(transactionSignature);
       setBurnTxSignature(transactionSignature);
 
-      // Send the transaction signature to the backend for verification and updating virtual balance
-      const response = await fetch('/api/burn-tokens', {
+      // Once the transaction is confirmed, asynchronously notify the backend
+      fetch('/api/burn-tokens', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,12 +125,9 @@ export default function Home() {
           publicKey: publicKey.toString(),
           amountBurned: amountToBurn,
         }),
+      }).catch((err) => {
+        console.error('Error notifying backend:', err);
       });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error);
-      }
 
       // Update virtual balance after successful burn
       const newVirtualBalance = virtualBalance + amountToBurn;
