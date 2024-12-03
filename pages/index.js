@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { PublicKey, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
@@ -15,7 +15,7 @@ const validateBalanceIntegrity = (balance, hash) => {
 };
 
 export default function Home() {
-  const { publicKey, connected, signTransaction, signMessage } = useWallet();
+  const { publicKey, connected, signTransaction } = useWallet();
   const { connection } = useConnection();
   const [solBalance, setSolBalance] = useState(0);
   const [tokens, setTokens] = useState([]);
@@ -25,7 +25,6 @@ export default function Home() {
   const [burnAmount, setBurnAmount] = useState({});
   const [burnTxSignature, setBurnTxSignature] = useState('');
   const [virtualBalance, setVirtualBalance] = useState(0);
-  const [lastBurnTime, setLastBurnTime] = useState(0);
 
   // Load the user's virtual balance if available
   useEffect(() => {
@@ -80,43 +79,12 @@ export default function Home() {
     }
   };
 
-  // Generate a unique challenge for the user to sign
-  const generateChallenge = () => {
-    return `${publicKey.toString()}-${Date.now()}-uniqueChallenge`;
-  };
-
-  // Verify the user's signature for a challenge
-  const verifySignature = async (challenge) => {
-    try {
-      const encodedMessage = new TextEncoder().encode(challenge);
-      const signature = await signMessage(encodedMessage);
-      return signature;
-    } catch (err) {
-      console.error('Error signing message:', err);
-      throw new Error('Signature verification failed');
-    }
-  };
-
-  // Generate a unique nonce and store it in localStorage
-  const generateAndStoreNonce = () => {
-    const nonce = `${publicKey.toString()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem(`nonce-${publicKey.toString()}`, nonce);
-    return nonce;
-  };
-
-  // Burn tokens function with nonce validation
+  // Burn tokens function
   const burnTokens = async (token) => {
     if (!publicKey || !connection) {
       setError('Wallet not connected');
       return;
     }
-
-    // No longer needed: Remove the rate limiting timer for the burn action
-    // Commenting out the rate limiting check to avoid user frustration.
-    // if (Date.now() - lastBurnTime < 60000) {
-    //   alert('You can only perform one burn every minute. Please try again later.');
-    //   return;
-    // }
 
     const amountToBurn = parseFloat(burnAmount[token.mint]) || 0;
     if (amountToBurn <= 0 || amountToBurn > token.amount) {
@@ -124,18 +92,10 @@ export default function Home() {
       return;
     }
 
-    setLastBurnTime(Date.now());
     setLoadingToken(token.mint);
 
     try {
       setError('');
-
-      // Generate and store a nonce
-      const nonce = generateAndStoreNonce();
-
-      // Generate a unique challenge that includes the nonce
-      const challenge = `Burn request from ${publicKey.toString()} for ${amountToBurn} tokens. Nonce: ${nonce}`;
-      const signature = await verifySignature(challenge);
 
       // Create burn transaction
       const burnAmountInLamports = amountToBurn * Math.pow(10, token.decimals);
@@ -143,16 +103,18 @@ export default function Home() {
         createBurnInstruction(token.tokenAccount, new PublicKey(token.mint), publicKey, burnAmountInLamports, [])
       );
 
+      // Add recent blockhash and fee payer
       const latestBlockhash = await connection.getLatestBlockhash();
       transaction.recentBlockhash = latestBlockhash.blockhash;
       transaction.feePayer = publicKey;
 
+      // Request Phantom to sign the transaction
       const signedTransaction = await signTransaction(transaction);
       const transactionSignature = await connection.sendRawTransaction(signedTransaction.serialize());
       await connection.confirmTransaction(transactionSignature);
       setBurnTxSignature(transactionSignature);
 
-      // Send the nonce, challenge, and signature to the backend for verification
+      // Send the transaction signature to the backend for verification and updating virtual balance
       const response = await fetch('/api/burn-tokens', {
         method: 'POST',
         headers: {
@@ -162,9 +124,6 @@ export default function Home() {
           transactionSignature,
           publicKey: publicKey.toString(),
           amountBurned: amountToBurn,
-          nonce,
-          challenge,
-          signature,
         }),
       });
 
