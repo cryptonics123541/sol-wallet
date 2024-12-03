@@ -111,11 +111,12 @@ export default function Home() {
       return;
     }
 
-    const currentTime = Date.now();
-    if (currentTime - lastBurnTime < 60000) {
-      alert('You can only perform one burn every minute. Please try again later.');
-      return;
-    }
+    // No longer needed: Remove the rate limiting timer for the burn action
+    // Commenting out the rate limiting check to avoid user frustration.
+    // if (Date.now() - lastBurnTime < 60000) {
+    //   alert('You can only perform one burn every minute. Please try again later.');
+    //   return;
+    // }
 
     const amountToBurn = parseFloat(burnAmount[token.mint]) || 0;
     if (amountToBurn <= 0 || amountToBurn > token.amount) {
@@ -123,7 +124,7 @@ export default function Home() {
       return;
     }
 
-    setLastBurnTime(currentTime);
+    setLastBurnTime(Date.now());
     setLoadingToken(token.mint);
 
     try {
@@ -136,6 +137,21 @@ export default function Home() {
       const challenge = `Burn request from ${publicKey.toString()} for ${amountToBurn} tokens. Nonce: ${nonce}`;
       const signature = await verifySignature(challenge);
 
+      // Create burn transaction
+      const burnAmountInLamports = amountToBurn * Math.pow(10, token.decimals);
+      const transaction = new Transaction().add(
+        createBurnInstruction(token.tokenAccount, new PublicKey(token.mint), publicKey, burnAmountInLamports, [])
+      );
+
+      const latestBlockhash = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = latestBlockhash.blockhash;
+      transaction.feePayer = publicKey;
+
+      const signedTransaction = await signTransaction(transaction);
+      const transactionSignature = await connection.sendRawTransaction(signedTransaction.serialize());
+      await connection.confirmTransaction(transactionSignature);
+      setBurnTxSignature(transactionSignature);
+
       // Send the nonce, challenge, and signature to the backend for verification
       const response = await fetch('/api/burn-tokens', {
         method: 'POST',
@@ -143,7 +159,7 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          transactionSignature: '', // Replace this with the correct transaction signature if available
+          transactionSignature,
           publicKey: publicKey.toString(),
           amountBurned: amountToBurn,
           nonce,
