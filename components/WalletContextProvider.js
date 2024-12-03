@@ -6,7 +6,7 @@ import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
 require('@solana/wallet-adapter-react-ui/styles.css');
 
 export default function WalletContextProvider({ children }) {
-  const endpoint = "https://mainnet.rpcprovider.com"; // Use a trusted RPC provider like QuickNode or Alchemy
+  const endpoint = "https://mainnet.helius-rpc.com/?api-key=4a0035ea-34b5-4afc-87a5-fbcca3474880";
 
   const wallets = useMemo(
     () => [
