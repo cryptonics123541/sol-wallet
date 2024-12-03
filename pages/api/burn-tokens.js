@@ -17,18 +17,22 @@ export default async function handler(req, res) {
     await connectDB();
 
     // Step 1: Verify the transaction on Solana blockchain
-    const tx = await connection.getTransaction(transactionSignature);
+    const tx = await connection.getTransaction(transactionSignature, {
+      commitment: 'confirmed',
+    });
     if (!tx) {
       return res.status(400).json({ error: 'Invalid transaction signature.' });
     }
 
-    // Step 2: Check if the transaction has a burn instruction
+    // Step 2: Check if the transaction has a burn instruction for the correct mint address
     const burnInstruction = tx.transaction.message.instructions.find(
-      (ix) => ix.programId.toString() === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+      (ix) =>
+        ix.programId.toString() === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' &&
+        ix.keys.some((key) => key.pubkey.toString() === process.env.EXPECTED_TOKEN_MINT)
     );
 
     if (!burnInstruction) {
-      return res.status(400).json({ error: 'No burn instruction found in transaction.' });
+      return res.status(400).json({ error: 'No valid burn instruction found in transaction.' });
     }
 
     // Step 3: Verify that the wallet matches the signer
@@ -43,18 +47,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Transaction already processed.' });
     }
 
-    // Step 5: Update user's virtual balance
-    if (!user) {
-      user = new User({
-        walletAddress: publicKey,
-        virtualBalance: 0,
-        transactionIds: [],
-      });
-    }
-
-    user.virtualBalance += amountBurned;
-    user.transactionIds.push(transactionSignature);
-    await user.save();
+    // Step 5: Update user's virtual balance atomically
+    user = await User.findOneAndUpdate(
+      { walletAddress: publicKey },
+      {
+        $inc: { virtualBalance: amountBurned },
+        $addToSet: { transactionIds: transactionSignature },
+      },
+      { upsert: true, new: true }
+    );
 
     return res.status(200).json({ virtualBalance: user.virtualBalance });
   } catch (err) {

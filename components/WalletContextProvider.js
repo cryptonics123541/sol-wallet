@@ -10,6 +10,12 @@ export default function WalletContextProvider({ children }) {
   // Get the endpoint from environment variable
   const endpoint = process.env.NEXT_PUBLIC_RPC_ENDPOINT;
 
+  // Validate that endpoint is provided
+  if (!endpoint) {
+    console.error('RPC endpoint is not defined. Please set NEXT_PUBLIC_RPC_ENDPOINT in your environment variables.');
+    return null;
+  }
+
   const wallets = useMemo(
     () => [
       new PhantomWalletAdapter(),
