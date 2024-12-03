@@ -25,15 +25,19 @@ export default function Home() {
   const [burnAmount, setBurnAmount] = useState({});
   const [burnTxSignature, setBurnTxSignature] = useState('');
   const [virtualBalance, setVirtualBalance] = useState(0);
-  let lastBurnTime = 0;
+  const [lastBurnTime, setLastBurnTime] = useState(0);
 
   // Load the user's virtual balance if available
   useEffect(() => {
     if (publicKey) {
-      const storedBalance = localStorage.getItem(`virtualBalance-${publicKey.toString()}`);
-      const storedHash = localStorage.getItem(`hashedBalance-${publicKey.toString()}`);
-      if (storedBalance && storedHash && validateBalanceIntegrity(storedBalance, storedHash)) {
-        setVirtualBalance(parseFloat(storedBalance));
+      try {
+        const storedBalance = localStorage.getItem(`virtualBalance-${publicKey.toString()}`);
+        const storedHash = localStorage.getItem(`hashedBalance-${publicKey.toString()}`);
+        if (storedBalance && storedHash && validateBalanceIntegrity(storedBalance, storedHash)) {
+          setVirtualBalance(parseFloat(storedBalance));
+        }
+      } catch (err) {
+        console.error('Error accessing local storage:', err);
       }
     }
   }, [publicKey]);
@@ -93,7 +97,14 @@ export default function Home() {
     }
   };
 
-  // Burn tokens function
+  // Generate a unique nonce and store it in localStorage
+  const generateAndStoreNonce = () => {
+    const nonce = `${publicKey.toString()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem(`nonce-${publicKey.toString()}`, nonce);
+    return nonce;
+  };
+
+  // Burn tokens function with nonce validation
   const burnTokens = async (token) => {
     if (!publicKey || !connection) {
       setError('Wallet not connected');
@@ -105,48 +116,45 @@ export default function Home() {
       alert('You can only perform one burn every minute. Please try again later.');
       return;
     }
-    lastBurnTime = currentTime;
+
+    const amountToBurn = parseFloat(burnAmount[token.mint]) || 0;
+    if (amountToBurn <= 0 || amountToBurn > token.amount) {
+      setError('Invalid burn amount.');
+      return;
+    }
+
+    setLastBurnTime(currentTime);
+    setLoadingToken(token.mint);
 
     try {
       setError('');
-      setLoadingToken(token.mint);
 
-      const amountToBurn = parseFloat(burnAmount[token.mint]) || 0;
-      if (amountToBurn <= 0 || amountToBurn > token.amount) {
-        setError('Invalid burn amount.');
-        setLoadingToken('');
-        return;
-      }
+      // Generate and store a nonce
+      const nonce = generateAndStoreNonce();
 
-      // Fetch on-chain balance before burning
-      const accountInfoBefore = await connection.getParsedAccountInfo(new PublicKey(token.tokenAccount));
-      const balanceBefore = accountInfoBefore?.value?.data?.parsed?.info?.tokenAmount?.uiAmount;
+      // Generate a unique challenge that includes the nonce
+      const challenge = `Burn request from ${publicKey.toString()} for ${amountToBurn} tokens. Nonce: ${nonce}`;
+      const signature = await verifySignature(challenge);
 
-      // Generate a unique challenge and sign it
-      const challenge = generateChallenge();
-      await verifySignature(challenge);
+      // Send the nonce, challenge, and signature to the backend for verification
+      const response = await fetch('/api/burn-tokens', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionSignature: '', // Replace this with the correct transaction signature if available
+          publicKey: publicKey.toString(),
+          amountBurned: amountToBurn,
+          nonce,
+          challenge,
+          signature,
+        }),
+      });
 
-      const burnAmountInLamports = amountToBurn * Math.pow(10, token.decimals);
-      const transaction = new Transaction().add(
-        createBurnInstruction(token.tokenAccount, new PublicKey(token.mint), publicKey, burnAmountInLamports, [])
-      );
-
-      const latestBlockhash = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = latestBlockhash.blockhash;
-      transaction.feePayer = publicKey;
-
-      const signedTransaction = await signTransaction(transaction);
-      const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-      await connection.confirmTransaction(signature);
-      setBurnTxSignature(signature);
-
-      // Fetch on-chain balance after burning
-      const accountInfoAfter = await connection.getParsedAccountInfo(new PublicKey(token.tokenAccount));
-      const balanceAfter = accountInfoAfter?.value?.data?.parsed?.info?.tokenAmount?.uiAmount;
-
-      // Validate that the correct amount has been burned
-      if (balanceBefore - balanceAfter !== amountToBurn) {
-        throw new Error('On-chain balance does not match expected balance. Possible tampering detected.');
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error);
       }
 
       // Update virtual balance after successful burn
@@ -163,9 +171,13 @@ export default function Home() {
 
   // Update virtual balance in local storage with integrity check
   const updateVirtualBalance = (balance) => {
-    const hashedBalance = hashBalance(balance);
-    localStorage.setItem(`virtualBalance-${publicKey.toString()}`, balance);
-    localStorage.setItem(`hashedBalance-${publicKey.toString()}`, hashedBalance);
+    try {
+      const hashedBalance = hashBalance(balance);
+      localStorage.setItem(`virtualBalance-${publicKey.toString()}`, balance);
+      localStorage.setItem(`hashedBalance-${publicKey.toString()}`, hashedBalance);
+    } catch (err) {
+      console.error('Error updating local storage:', err);
+    }
   };
 
   return (
