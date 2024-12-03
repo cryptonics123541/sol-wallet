@@ -1,64 +1,65 @@
-const burnTokens = async (token) => {
-    if (!publicKey || !connection) {
-      setError('Wallet not connected');
-      return;
+import { Connection, PublicKey } from '@solana/web3.js';
+import connectDB from '../../utils/db';
+import User from '../../models/User';
+
+const SOLANA_RPC_ENDPOINT = process.env.SOLANA_RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com';
+const connection = new Connection(SOLANA_RPC_ENDPOINT, 'confirmed');
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { transactionSignature, publicKey, amountBurned } = req.body;
+
+  try {
+    // Connect to MongoDB
+    await connectDB();
+
+    // Step 1: Verify if the transaction has already been processed
+    let user = await User.findOne({ walletAddress: publicKey });
+    if (user && user.transactionIds.includes(transactionSignature)) {
+      return res.status(400).json({ error: 'Transaction already processed.' });
     }
-  
-    const amountToBurn = parseFloat(burnAmount[token.mint]) || 0;
-    if (amountToBurn <= 0 || amountToBurn > token.amount) {
-      setError('Invalid burn amount.');
-      return;
+
+    // Step 2: Verify the transaction on the Solana blockchain
+    const tx = await connection.getTransaction(transactionSignature, {
+      commitment: 'confirmed',
+    });
+    if (!tx) {
+      return res.status(400).json({ error: 'Invalid transaction signature.' });
     }
-  
-    setLoadingToken(token.mint);
-  
-    try {
-      setError('');
-  
-      // Create burn transaction
-      const burnAmountInLamports = amountToBurn * Math.pow(10, token.decimals);
-      const transaction = new Transaction().add(
-        createBurnInstruction(token.tokenAccount, new PublicKey(token.mint), publicKey, burnAmountInLamports, [])
-      );
-  
-      // Add recent blockhash and fee payer
-      const latestBlockhash = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = latestBlockhash.blockhash;
-      transaction.feePayer = publicKey;
-  
-      // Request Phantom to sign the transaction
-      const signedTransaction = await signTransaction(transaction);
-      const transactionSignature = await connection.sendRawTransaction(signedTransaction.serialize());
-      await connection.confirmTransaction(transactionSignature);
-      setBurnTxSignature(transactionSignature);
-  
-      // Send the transaction signature to the backend for verification and updating virtual balance
-      const response = await fetch('/api/burn-tokens', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          transactionSignature,
-          publicKey: publicKey.toString(),
-          amountBurned: amountToBurn,
-        }),
-      });
-  
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error);
-      }
-  
-      // Update virtual balance after successful burn
-      const newVirtualBalance = virtualBalance + amountToBurn;
-      setVirtualBalance(newVirtualBalance);
-      updateVirtualBalance(newVirtualBalance);
-    } catch (err) {
-      console.error('Error while burning:', err);
-      setError(`Burning tokens failed: ${err.message}`);
-    } finally {
-      setLoadingToken('');
+
+    // Step 3: Check if the transaction has a burn instruction for the correct mint address
+    const burnInstruction = tx.transaction.message.instructions.find(
+      (ix) =>
+        ix.programId.toString() === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' &&
+        ix.keys.some((key) => key.pubkey.toString() === process.env.EXPECTED_TOKEN_MINT)
+    );
+
+    if (!burnInstruction) {
+      return res.status(400).json({ error: 'No valid burn instruction found in transaction.' });
     }
-  };
-  
+
+    // Step 4: Verify that the wallet matches the signer
+    const signerKey = tx.transaction.message.accountKeys[0].toString();
+    if (signerKey !== publicKey) {
+      return res.status(400).json({ error: 'Transaction signature does not match wallet public key.' });
+    }
+
+    // Step 5: Update user's virtual balance atomically
+    user = await User.findOneAndUpdate(
+      { walletAddress: publicKey },
+      {
+        $inc: { virtualBalance: amountBurned },
+        $addToSet: { transactionIds: transactionSignature },
+      },
+      { upsert: true, new: true }
+    );
+
+    return res.status(200).json({ virtualBalance: user.virtualBalance });
+  } catch (err) {
+    console.error('Error verifying burn transaction:', err);
+    return res.status(500).json({ error: 'Internal Server Error during transaction processing.' });
+  }
+}
