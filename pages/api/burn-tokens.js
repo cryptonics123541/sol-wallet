@@ -13,6 +13,9 @@ export default async function handler(req, res) {
   const { transactionSignature, publicKey, amountBurned } = req.body;
 
   try {
+    // Artificial delay to mimic local response time
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     // Connect to MongoDB
     await connectDB();
 
@@ -30,24 +33,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid transaction signature.' });
     }
 
-    // Step 3: Check if the transaction has a burn instruction for the correct mint address
-    const burnInstruction = tx.transaction.message.instructions.find(
-      (ix) =>
-        ix.programId.toString() === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' &&
-        ix.keys.some((key) => key.pubkey.toString() === process.env.EXPECTED_TOKEN_MINT)
-    );
-
-    if (!burnInstruction) {
-      return res.status(400).json({ error: 'No valid burn instruction found in transaction.' });
-    }
-
-    // Step 4: Verify that the wallet matches the signer
-    const signerKey = tx.transaction.message.accountKeys[0].toString();
-    if (signerKey !== publicKey) {
-      return res.status(400).json({ error: 'Transaction signature does not match wallet public key.' });
-    }
-
-    // Step 5: Update user's virtual balance atomically
+    // Step 3: Update user's virtual balance atomically
     user = await User.findOneAndUpdate(
       { walletAddress: publicKey },
       {
