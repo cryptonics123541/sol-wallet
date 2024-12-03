@@ -1,5 +1,14 @@
-import "@/styles/globals.css";
+// pages/_app.js
+import '../styles/globals.css';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import ClientWalletProvider from '../components/WalletProvider';
 
-export default function App({ Component, pageProps }) {
-  return <Component {...pageProps} />;
+function MyApp({ Component, pageProps }) {
+    return (
+        <ClientWalletProvider>
+            <Component {...pageProps} />
+        </ClientWalletProvider>
+    );
 }
+
+export default MyApp;

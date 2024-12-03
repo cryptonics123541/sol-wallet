@@ -1,115 +1,108 @@
-import Image from "next/image";
-import localFont from "next/font/local";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+// pages/index.js
+import { useState, useEffect } from 'react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
 export default function Home() {
-  return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              pages/index.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    const { connection } = useConnection();
+    const { publicKey, connected } = useWallet();
+    const [balance, setBalance] = useState(0);
+    const [tokens, setTokens] = useState([]);
+    const [selectedToken, setSelectedToken] = useState(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    useEffect(() => {
+        if (connected && publicKey) {
+            fetchBalanceAndTokens();
+        }
+    }, [connected, publicKey]);
+
+    const fetchBalanceAndTokens = async () => {
+        try {
+            // Fetch SOL balance
+            const balance = await connection.getBalance(publicKey);
+            setBalance(balance / LAMPORTS_PER_SOL);
+
+            // Fetch SPL tokens
+            const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+                programId: TOKEN_PROGRAM_ID,
+            });
+
+            const tokenList = tokenAccounts.value.map(accountInfo => ({
+                mint: accountInfo.account.data.parsed.info.mint,
+                amount: accountInfo.account.data.parsed.info.tokenAmount.uiAmount,
+                decimals: accountInfo.account.data.parsed.info.tokenAmount.decimals,
+            }));
+
+            setTokens(tokenList);
+        } catch (error) {
+            console.error('Error fetching balance:', error);
+        }
+    };
+
+    const burnToken = async (tokenMint) => {
+        if (!selectedToken) return;
+        try {
+            // Implement burn functionality here
+            console.log('Burning token:', tokenMint);
+            alert('Burn functionality will be implemented in the next step');
+        } catch (error) {
+            console.error('Error burning token:', error);
+        }
+    };
+
+    return (
+        <div className="p-8 max-w-4xl mx-auto">
+            <h1 className="text-4xl font-bold mb-8">Solana Wallet Integration</h1>
+            
+            <div className="mb-8">
+                <WalletMultiButton />
+            </div>
+
+            {connected && (
+                <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-lg shadow">
+                        <h2 className="text-2xl font-semibold mb-4">Wallet Info</h2>
+                        <p className="mb-2">Address: {publicKey.toString()}</p>
+                        <p>SOL Balance: {balance.toFixed(4)} SOL</p>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-lg shadow">
+                        <h2 className="text-2xl font-semibold mb-4">SPL Tokens</h2>
+                        <div className="mb-4 flex gap-4">
+                            <select 
+                                onChange={(e) => setSelectedToken(e.target.value)}
+                                className="p-2 border rounded flex-1"
+                            >
+                                <option value="">Select a token</option>
+                                {tokens.map((token, index) => (
+                                    <option key={index} value={token.mint}>
+                                        {token.mint.slice(0, 8)}... ({token.amount})
+                                    </option>
+                                ))}
+                            </select>
+                            <button 
+                                onClick={() => burnToken(selectedToken)}
+                                disabled={!selectedToken}
+                                className="px-4 py-2 bg-red-500 text-white rounded disabled:bg-gray-300"
+                            >
+                                Burn Token
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h3 className="text-xl font-semibold">Your Tokens:</h3>
+                            {tokens.map((token, index) => (
+                                <div key={index} className="p-4 border rounded">
+                                    <p className="mb-2">Mint: {token.mint}</p>
+                                    <p>Amount: {token.amount}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+    );
 }
