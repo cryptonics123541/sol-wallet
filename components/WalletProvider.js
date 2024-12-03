@@ -2,7 +2,6 @@
 import { useMemo } from 'react';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -11,9 +10,7 @@ export default function ClientWalletProvider({ children }) {
     const endpoint = process.env.NEXT_PUBLIC_RPC_URL;
 
     const wallets = useMemo(
-        () => [
-            new PhantomWalletAdapter(),
-        ],
+        () => [],  // Empty array since Phantom is now a standard wallet
         [network]
     );
 
