@@ -8,16 +8,16 @@ const renderer = new THREE.WebGLRenderer({ canvas });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 
-// Glowing Sphere
-const geometry = new THREE.SphereGeometry(1, 32, 32); // Sphere geometry
+// Glowing Cube
+const geometry = new THREE.BoxGeometry(1, 1, 1); // Cube geometry
 const material = new THREE.MeshPhongMaterial({
-    color: 0x44aa88,          // Base color of the sphere
+    color: 0x44aa88,          // Base color of the cube
     emissive: 0x229977,       // Glow color
     emissiveIntensity: 1,     // Initial glow strength
     shininess: 100,           // Reflectiveness
 });
-const sphere = new THREE.Mesh(geometry, material);
-scene.add(sphere); // Add sphere to the scene
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube); // Add cube to the scene
 
 // Lighting
 const pointLight = new THREE.PointLight(0xffffff, 1, 100); // Strong light source
@@ -34,9 +34,21 @@ camera.position.z = 5;
 function animate() {
     requestAnimationFrame(animate);
 
-    // Rotate the sphere
-    sphere.rotation.x += 0.01; // Slow X-axis rotation
-    sphere.rotation.y += 0.01; // Slow Y-axis rotation
+    // Rotate the cube
+    cube.rotation.x += 0.01; // Slow X-axis rotation
+    cube.rotation.y += 0.01; // Slow Y-axis rotation
 
     // Pulse the glow (sinusoidal intensity change)
-    material.emissiveIntensity = 1.5 + Mat
+    material.emissiveIntensity = 1.5 + Math.sin(Date.now() * 0.005) * 0.5;
+
+    renderer.render(scene, camera); // Render the scene
+}
+
+animate(); // Start animation
+
+// Adjust canvas size on window resize
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
