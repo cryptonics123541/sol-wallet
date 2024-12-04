@@ -1,7 +1,7 @@
 body {
     margin: 0;
     overflow: hidden;
-    background: #000; /* Ensure background isn't blank white */
+    background: #000; /* Black background for better glowing effect */
 }
 
 canvas {
