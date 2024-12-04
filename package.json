@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "3D glowing visualization using Three.js",
   "scripts": {
-    "vercel-build": "echo 'Skipping build step' && exit 0"
-  }
+    "vercel-build": "echo 'Skipping build step'"
+  },
+  "dependencies": {}
 }
